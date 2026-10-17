@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pembayaran</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f0;--surf:#fff;--ink:#12261f;--mut:#5b6e66;--pri:#0e5c4a;--pri-ink:#fff;--acc:#f0a500;--line:#d5dfda;--chip:#e2ece7;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1a16;--surf:#17251f;--ink:#e7f1ec;--mut:#9bb0a6;--pri:#3ecf9f;--pri-ink:#06241b;--acc:#f5b72e;--line:#2a3d35;--chip:#21342c}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1a16;--surf:#17251f;--ink:#e7f1ec;--mut:#9bb0a6;--pri:#3ecf9f;--pri-ink:#06241b;--acc:#f5b72e;--line:#2a3d35;--chip:#21342c}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "Plus Jakarta Sans",system-ui,sans-serif;padding-bottom:76px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:var(--chip);border-radius:12px;padding:12px 14px;font-weight:600}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.pri{background:var(--pri);color:var(--pri-ink)}
+input{width:100%;border:1.5px solid var(--line);background:var(--surf);border-radius:12px;padding:12px}
+.hd{background:var(--pri);color:var(--pri-ink);padding:22px 20px 44px;border-radius:0 0 28px 28px;display:flex;flex-direction:column;gap:2px}.hd b{font-size:24px;font-weight:800}.hd span{opacity:.85;font-size:13px}
+main{max-width:460px;margin:-26px auto 0;padding:16px}
+.qrimg{display:block;width:100%;max-width:300px;margin:12px auto;border-radius:14px;background:#fff;padding:8px;border:1.5px solid var(--line)}
+.up{display:block;position:relative;text-align:center;margin-top:12px;padding:16px;border:2px dashed var(--line);border-radius:14px;font-weight:600;cursor:pointer}.up:focus-within{outline:3px solid var(--acc)}.up input{position:absolute;opacity:0;width:1px;height:1px}
+.sub{color:var(--mut);font-size:13px}
+.card{background:var(--surf);border:1.5px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 6px 18px #0e5c4a14}
+.amt{font-size:42px;font-weight:800;text-align:center;padding:10px 0 6px;word-break:break-all;color:var(--pri)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.keys button{font-size:22px;padding:16px 0;background:var(--surf);border:1.5px solid var(--line);border-radius:14px}.keys button:active{background:var(--chip);transform:scale(.97)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chips button.on{background:var(--pri);color:var(--pri-ink)}
+.row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);align-items:center}
+.tot{display:flex;justify-content:space-between;font-size:20px;font-weight:800;margin:10px 0}
+.chg{font-size:20px;font-weight:800;color:var(--pri);margin:10px 0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--surf);border-top:1.5px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border-radius:0;background:none;padding:16px 0;color:var(--mut)}
+nav button.on{color:var(--pri);box-shadow:inset 0 3px 0 var(--pri)}
+.modal{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal>div{background:var(--surf);width:100%;max-width:440px;border-radius:18px;padding:20px;max-height:92vh;overflow:auto}
+.rc{font-family:ui-monospace,monospace;font-size:13px}
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}.stat b{display:block;font-size:20px}
+@media print{body>*:not(#rcprint){display:none!important}.noprint{display:none!important}.modal{position:static;background:none}.modal>div{color:#000;background:#fff}}
+</style>
+</head>
+<body>
+<header class="hd"><b>Pembayaran</b><span>Terima pembayaran dengan cepat dan rapi</span></header>
+<main id="m"></main>
+<div id="o"></div>
+<nav id="nv"></nav>
+<script>
+const $=s=>document.querySelector(s);
+const rp=n=>'Rp'+Math.round(n).toLocaleString('id-ID');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S={name:'',seq:1,sales:[]};
+try{const d=JSON.parse(localStorage.getItem('bayar'));if(d&&d.sales)S=d}catch(e){}
+const save=()=>{try{localStorage.setItem('bayar',JSON.stringify(S))}catch(e){}};
+let tab='bayar',a='',note='',pay=null,rc=null,qrv=false;
+const amt=()=>+a||0;
+const day=t=>new Date(t).toLocaleDateString('id-ID');
+const when=t=>new Date(t).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+function view(){
+$('#nv').innerHTML=[['bayar','Bayar'],['riwayat','Riwayat'],['qr','QR saya']].map(([k,t])=>`<button class="${tab==k?'on':''}" data-a="tab" data-id="${k}">${t}</button>`).join('');
+let h='';
+if(tab=='bayar'){h=`<div class="card"><label class="sub">Nama penerima (tampil di struk)</label><input id="nm" value="${esc(S.name)}" placeholder="Contoh: Toko Maju"></div>
+<div class="card" style="margin-top:12px"><div class="sub" style="text-align:center">Jumlah pembayaran</div><div class="amt" id="am">${rp(amt())}</div>
+<div class="keys">${[1,2,3,4,5,6,7,8,9,'000',0,'⌫'].map(k=>`<button data-a="k" data-id="${k}" aria-label="${k=='⌫'?'Hapus':k}">${k}</button>`).join('')}</div>
+<input id="nt" placeholder="Catatan (opsional)" value="${esc(note)}">
+<button class="pri" id="go" style="width:100%;padding:16px;margin-top:12px" data-a="pay" ${amt()>0?'':'disabled'}>Lanjut bayar</button></div>`}
+if(tab=='riwayat'){const td=S.sales.filter(s=>day(s.t)==day(Date.now()));const sum=td.reduce((x,s)=>x+s.total,0);const by={};td.forEach(s=>by[s.method]=(by[s.method]||0)+s.total);
+h=`<div class="card"><b>Hari ini</b><div class="stat"><div><span class="sub">Total diterima</span><b>${rp(sum)}</b></div><div><span class="sub">Transaksi</span><b>${td.length}</b></div></div>${Object.entries(by).map(([k,v])=>`<div class="row"><span>${k}</span><b>${rp(v)}</b></div>`).join('')}</div>
+<div class="card" style="margin-top:12px"><b>Semua transaksi</b>${S.sales.length?S.sales.map(s=>`<button class="row" style="width:100%;background:none;border-radius:0;text-align:left" data-a="rcpt" data-id="${s.id}"><span><b>#${s.id}</b> <span class="sub">${when(s.t)} · ${s.method}</span></span><b>${rp(s.total)}</b></button>`).join(''):'<p class="sub">Belum ada transaksi. Buat pembayaran pertama di tab Bayar.</p>'}</div>`}
+if(tab=='qr'){h=`<div class="card"><b>QR pembayaran saya</b><p class="sub">Unggah gambar QR Anda (QRIS atau lainnya). Gambar disimpan di perangkat ini.</p>${S.qr?`<img class="qrimg" src="${S.qr}" alt="QR pembayaran"><div style="display:flex;gap:8px"><button class="pri" style="flex:1" data-a="qrp">Cetak QR</button><button style="flex:1" data-a="qrdel">Hapus</button></div>`:''}<label class="up">${S.qr?'Ganti gambar QR':'Pilih gambar QR'}<input id="qf" type="file" accept="image/*"></label></div>`}
+$('#m').innerHTML=h;
+let o='';
+if(pay){const t=amt(),ok=pay.m!='Tunai'||pay.paid>=t;
+o=`<div class="modal"><div><h3 style="margin:0">Pilih metode</h3><div class="tot"><span>Total</span><span>${rp(t)}</span></div>
+<div class="chips">${['Tunai','QRIS','Transfer','E-wallet'].map(m=>`<button class="${pay.m==m?'on':''}" data-a="pm" data-id="${m}">${m}</button>`).join('')}</div>
+${pay.m=='Tunai'?`<input id="pd" inputmode="numeric" placeholder="Uang diterima" value="${pay.paid||''}"><div class="chips"><button data-a="q" data-id="${t}">Uang pas</button>${[20000,50000,100000].map(v=>`<button data-a="q" data-id="${v}">${v/1000}rb</button>`).join('')}</div><div class="chg" id="cg">${pay.paid>=t?'Kembalian '+rp(pay.paid-t):'Uang kurang '+rp(t-pay.paid)}</div>`:`${pay.m=='QRIS'?(S.qr?`<img class="qrimg" src="${S.qr}" alt="QR pembayaran"><button style="width:100%;margin-bottom:8px" data-a="qrp">Cetak QR</button>`:'<p class="sub">Belum ada QR. Unggah di tab QR saya.</p>'):''}<p class="sub">Minta pembayaran lewat ${pay.m}, lalu tekan tombol di bawah setelah dana masuk.</p>`}
+<button class="pri" id="ok" style="width:100%;padding:14px" data-a="done" ${ok?'':'disabled'}>Selesaikan pembayaran</button><button style="width:100%;margin-top:8px" data-a="cancelPay">Batal</button></div></div>`}
+if(rc){o=`<div class="modal" id="rcprint"><div class="rc"><div style="text-align:center"><b>${esc(rc.name||'Bukti pembayaran')}</b><br>${when(rc.t)}<br>No. #${rc.id}</div><hr>
+${rc.note?`<div class="row"><span>${esc(rc.note)}</span></div>`:''}
+<div class="row"><b>Total</b><b>${rp(rc.total)}</b></div><div class="row"><span>${rc.method}</span><span>${rp(rc.paid)}</span></div>${rc.method=='Tunai'?`<div class="row"><span>Kembali</span><span>${rp(rc.paid-rc.total)}</span></div>`:''}
+<p style="text-align:center">Terima kasih!</p><div class="noprint" style="display:flex;gap:8px"><button class="pri" style="flex:1" data-a="print">Cetak</button><button style="flex:1" data-a="close">Tutup</button></div></div></div>`}
+if(qrv&&S.qr){o=`<div class="modal" id="rcprint"><div style="text-align:center"><h2 style="margin:0 0 4px">${esc(S.name||'Pembayaran')}</h2><p class="sub" style="margin:0">Scan untuk membayar</p><img class="qrimg" src="${S.qr}" alt="QR pembayaran"><div class="noprint" style="display:flex;gap:8px;margin-top:14px"><button class="pri" style="flex:1" data-a="print">Cetak</button><button style="flex:1" data-a="qrc">Tutup</button></div></div></div>`}
+$('#o').innerHTML=o}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const x=b.dataset.a,id=b.dataset.id;
+if(x=='tab'){tab=id}
+else if(x=='k'){if(id=='⌫')a=a.slice(0,-1);else if((a+id).length<=10)a=(a+id).replace(/^0+/,'');$('#am').textContent=rp(amt());$('#go').disabled=!(amt()>0);return}
+else if(x=='pay'){pay={m:'Tunai',paid:0}}
+else if(x=='pm'){pay.m=id}
+else if(x=='q'){pay.paid=+id}
+else if(x=='cancelPay'){pay=null}
+else if(x=='done'){const t=amt();rc={id:S.seq++,t:Date.now(),name:S.name,note:note.trim(),total:t,method:pay.m,paid:pay.m=='Tunai'?pay.paid:t};S.sales.unshift(rc);a='';note='';pay=null;save()}
+else if(x=='close'){rc=null}
+else if(x=='qrp'){qrv=true}
+else if(x=='qrc'){qrv=false}
+else if(x=='qrdel'){delete S.qr;save()}
+else if(x=='print'){try{window.print()}catch(z){}return}
+else if(x=='rcpt'){rc=S.sales.find(s=>s.id==id)}
+view()});
+document.addEventListener('input',e=>{const t=e.target;
+if(t.id=='nm'){S.name=t.value;save()}
+else if(t.id=='nt'){note=t.value}
+else if(t.id=='pd'){pay.paid=+t.value.replace(/\D/g,'')||0;const tt=amt();$('#cg').textContent=pay.paid>=tt?'Kembalian '+rp(pay.paid-tt):'Uang kurang '+rp(tt-pay.paid);$('#ok').disabled=pay.paid<tt}});
+document.addEventListener('change',e=>{const f=e.target.id=='qf'&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,900/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);S.qr=c.toDataURL('image/png');save();view()};im.onerror=()=>alert('Gambar tidak bisa dibaca. Coba file PNG atau JPG.');im.src=r.result};r.readAsDataURL(f)});
+view();
+</script>
+</body>
+</html>
